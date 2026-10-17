@@ -262,6 +262,19 @@ namespace Lol
             return block;
         }
 
+        // The imp's pit once spawned monsters with a direction for a facing (facing 4 or 6, direction 8 or 12): drawing
+        // one indexed past MonsterDirFlags. Saves made then are brought back into range (direction 0-7, facing 0-3).
+        static Monster SaveGame_repairDirection(Monster m)
+        {
+            if (m.direction > 7 || m.destDirection > 7 || m.facing > 3)
+            {
+                m.direction &= 7;
+                m.destDirection &= 7;
+                m.facing = m.direction >> 1;
+            }
+            return m;
+        }
+
         // Returns a JSON-serializable snapshot of the running game.
         public JsonObject saveState()
         {
@@ -441,7 +454,7 @@ namespace Lol
             if (save["monsterSpawns"] is JsonObject savedSpawns)
             {
                 foreach (var e in savedSpawns)
-                    monsterSpawns[int.Parse(e.Key, CultureInfo.InvariantCulture)] = e.Value.AsArray().Select(m => SaveGame_fromJson<Monster>(m, SaveGame_MONSTER_KEYS)).ToArray();
+                    monsterSpawns[int.Parse(e.Key, CultureInfo.InvariantCulture)] = e.Value.AsArray().Select(m => SaveGame_repairDirection(SaveGame_fromJson<Monster>(m, SaveGame_MONSTER_KEYS))).ToArray();
             }
             lvlTempData = new LvlTempData[LVL_TEMP_SLOTS];
             foreach (var e in save["levels"].AsObject())
@@ -453,7 +466,7 @@ namespace Lol
                     flags = SaveGame_ints(t["flags"]),
                     monsters = t["monsters"].AsArray().Select(mj =>
                     {
-                        var m = SaveGame_fromJson<Monster>(mj, SaveGame_MONSTER_KEYS);
+                        var m = SaveGame_repairDirection(SaveGame_fromJson<Monster>(mj, SaveGame_MONSTER_KEYS));
                         m.properties = monsterProperties[m.type];
                         return m;
                     }).ToArray(),
