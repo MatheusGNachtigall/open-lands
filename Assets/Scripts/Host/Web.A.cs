@@ -74,6 +74,7 @@ namespace LolHost
         VisualElement controls;
         VisualElement reload;
         VisualElement teleportForm;
+        VisualElement teleportStepRow;
         int lastAutosaveLevel = -1; // level of the last "changing level" autosave check
         IndexedScreen screen;
         Minimap minimap;
@@ -94,6 +95,7 @@ namespace LolHost
             controls = Q("#game-controls");
             reload = Q("#reload");
             teleportForm = Q("#teleport");
+            teleportStepRow = Q("#teleport-step-row");
             screen = new IndexedScreen((CanvasEl)Q("#screen"));
             minimap = new Minimap((CanvasEl)Q("#minimap"));
             filterSelect = Q("#filter") as DomSelect;
