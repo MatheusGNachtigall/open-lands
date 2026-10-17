@@ -4,7 +4,8 @@
 #   bash tools/campaign.sh [NN ...]      (default: all, in order; a segment NN > 01 starts with Continue)
 set -u
 cd "$(dirname "$0")/.."
-W="$(wslpath -w "$PWD")"
+. ./env.sh
+W="$(winpath "$PWD")"
 mkdir -p Shots/bot
 store=Shots/bot/campaign.json
 for f in tools/campaign/*.txt; do

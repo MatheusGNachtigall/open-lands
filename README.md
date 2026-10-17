@@ -24,7 +24,9 @@ bash release.sh OUT  # the Windows and Linux release archives in OUT
 bash tools/parity.sh # the C# engine against the web engine, scenario by scenario
 ```
 
-The scripts were written for WSL on Windows; adjust their paths for your system.
+The scripts run under WSL or Git Bash on Windows. Copy `.env.example` to `.env` and set `LOL_GAME_DIR` (the GOG
+folder, with GAME.DAT: `play.sh` and the test tools import it into `GameData` the first time) and, if Unity is not
+in its default folder, `UNITY`.
 
 ## Layout
 

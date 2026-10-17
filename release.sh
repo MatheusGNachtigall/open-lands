@@ -4,18 +4,19 @@
 #   bash release.sh [OUT_DIR]
 set -eu
 cd "$(dirname "$0")"
+. ./env.sh   # UNITY (.env)
 LANDS="${LANDS:-$HOME/lands}"   # the web project (optional: refreshes the icons kept in the repository)
 OUT="${1:-${OUT:-$HOME/OpenLands-release}}"
 bash build-engine.sh
 [ -d "$LANDS/src/assets" ] && mkdir -p Assets/StreamingAssets/web/src && cp -ru "$LANDS"/src/assets Assets/StreamingAssets/web/src/
-UNITY="/mnt/c/Program Files/Unity/Hub/Editor/6000.6.3f1/Editor/Unity.exe"
-proj="$(wslpath -w "$PWD")"
+[ -f "$UNITY" ] || { echo "no Unity editor at $UNITY: set UNITY in .env"; exit 1; }
+proj="$(winpath "$PWD")"
 rm -rf Build/Release
 set +e
 "$UNITY" -batchmode -nographics -quit -projectPath "$proj" -executeMethod Build.Release -logFile "$proj\\Logs\\release.log"
 code=$?
 set -e
-grep -E "error CS|BUILD RESULT|Exception" Logs/release.log | sort -u | head -20
+grep -E "error CS|BUILD RESULT|Exception|Licensing::Module] Error: '.*' was not found" Logs/release.log | sort -u | head -20
 [ $code -eq 0 ] || exit $code
 [ -d Assets/Resources/Guide ] || { echo "the guide's pictures were not put back"; exit 1; }
 for plat in Windows Linux; do

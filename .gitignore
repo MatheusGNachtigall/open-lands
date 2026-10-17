@@ -37,3 +37,7 @@ __pycache__/
 # the engine's and the tracer's own project files are source (the Unity-generated ones above are not)
 !/Engine/Engine.csproj
 !/Trace/Trace.csproj
+!/tools/ImportGame/ImportGame.csproj
+
+# local settings (the path to the original game, etc.)
+/.env
