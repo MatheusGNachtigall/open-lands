@@ -5,6 +5,8 @@
 # Output: Shots/diff/{js,cs}.txt and the diff. Exit 0 when they agree.
 set -u
 cd "$(dirname "$0")/.."
+. ./env.sh
+LOL_DATA="${LOL_DATA:-$(lol_game_data)}" || exit 2; export LOL_DATA   # the game for Trace
 steps="$1"
 out=Shots/diff; mkdir -p "$out"
 export PATH="${LANDS:-$HOME/lands}/tools/node24/bin:$HOME/.dotnet:$PATH"

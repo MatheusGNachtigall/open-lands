@@ -7,9 +7,10 @@
 # shot:X / dump:X take a bare name; the steps are the ones play.sh and tools/web_steps.py share.
 set -u
 cd "$(dirname "$0")/.."
+. ./env.sh
 name=$1 steps=$2 quit=${3:-} storage=${4:-}
 out=Shots/cmp; mkdir -p "$out"
-W="$(wslpath -w "$PWD")"
+W="$(winpath "$PWD")"
 last=$(echo "$steps" | tr ',' '\n' | cut -d: -f1 | sort -g | tail -1)
 quit=${quit:-$(awk "BEGIN{print $last + 2}")}
 web=$(echo "$steps" | sed -E "s#(shot|dump):([A-Za-z0-9_-]+)#\1:$out/web-$name-\2.EXT_\1#g; s#EXT_shot#png#g; s#EXT_dump#txt#g")
