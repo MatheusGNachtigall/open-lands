@@ -1269,7 +1269,7 @@ namespace Lol
                     tries += 1;
                     int at = Js.Floor(random() * spots.Count);
                     int block = spots[at];
-                    int facing = (Js.Floor(random() * 4) << 1) & 6;
+                    int facing = Js.Floor(random() * 4); // initMonster takes a facing (0-3) and makes the direction of it
                     List<int> order;
                     if (random() < 0.5) { order = types.ToList(); Dungeon_v8Sort(order, (x, y) => random() - 0.5); }
                     else order = bySize;
@@ -1351,7 +1351,7 @@ namespace Lol
             foreach (int block in lair.Concat(plan.cells))
             {
                 if (@sealed.Contains(block)) continue;
-                int index = initMonster(new[] { block, 0x80, 0x80, (Js.Floor(random() * 4) << 1) & 6, type, 0, 0, 0, 0, 0, 0 });
+                int index = initMonster(new[] { block, 0x80, 0x80, Js.Floor(random() * 4), type, 0, 0, 0, 0, 0, 0 });
                 if (index == -1) continue; // nothing of this level fits here
                 var m = monsters[index];
                 m.ngplus = Js.FloorDiv(depth, 3);
