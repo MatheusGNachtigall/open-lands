@@ -1261,6 +1261,7 @@ namespace LolHost
             try
             {
                 if (teleportForm != null) teleportForm.Q("button").SetDisabled(false);
+                if (teleportStepRow != null) foreach (var btn in teleportStepRow.QAll("button")) btn.SetDisabled(false);
                 string result;
                 try { result = await start(engine); }
                 catch (Exception error) when (error.Message == "quit") { result = "quit"; }
@@ -1271,6 +1272,7 @@ namespace LolHost
                 foreach (var bar in monsterBars.Values) bar.RemoveFromHierarchy();   // and its monsters' bars
                 monsterBars.Clear();
                 if (teleportForm != null) teleportForm.Q("button").SetDisabled(true);
+                if (teleportStepRow != null) foreach (var btn in teleportStepRow.QAll("button")) btn.SetDisabled(true);
                 toggleInventory(false);
                 playing = false;
                 compactActive = false;
@@ -1376,6 +1378,24 @@ namespace LolHost
                 // The DOM layer has no form submission: the form's button submits it.
                 var submit = teleportForm.Q("button");
                 if (submit != null) submit.On("click", () => teleportForm.Fire("submit", new DomEvent { target = teleportForm }));
+            }
+            if (teleportStepRow != null)
+            {
+                var noteEl = Q("#teleport-step-note");
+                foreach (var dirBtn in teleportStepRow.QAll("button"))
+                {
+                    dirBtn.On("click", () =>
+                    {
+                        if (!playing || engine == null) return;
+                        string distVal = ((DomInput)Q("#teleport-step-dist")).value;
+                        if (!int.TryParse(distVal, out int dist) || dist < 1) dist = 1;
+                        string dirStr = dirBtn.GetAttr("data-dir") ?? "0";
+                        if (!int.TryParse(dirStr, out int dir)) dir = 0;
+                        int fromBlock = engine.currentBlock;
+                        engine.queueAsync(() => { int toBlock = engine.debugTeleportBy(dist, dir); Dom.Invoke(() => { if (noteEl != null) { noteEl.SetHidden(false); noteEl.SetText($"Block {fromBlock} → {toBlock}  (x {toBlock & 31}, y {toBlock >> 5})"); } }); return Task.CompletedTask; });
+                        screen.canvas.FocusEl();
+                    });
+                }
             }
             // window.addEventListener("pagehide", ...): see pagehide().
             lastAutosaveAt = now();

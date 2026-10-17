@@ -229,6 +229,39 @@ namespace Lol
             sceneUpdateRequired = true;
         }
 
+        // Debug helper: move the party to a block on the SAME (including generated) map without reloading it.
+        // Direction is 0-3; pass -1 to keep the current facing.
+        public void debugTeleportHere(int block, int direction = -1)
+        {
+            if (block < 0 || block > 1023) return;
+            completeDoorOperations();
+            currentBlock = block;
+            if (direction >= 0) currentDirection = direction & 3;
+            (partyPosX, partyPosY) = calcCoordinates(currentBlock, 0x80, 0x80);
+            updateAutoMap(currentBlock);
+            sceneUpdateRequired = true;
+            gui_drawScene(0);
+        }
+
+        // Debug helper: move the party `distance` blocks in a compass direction on the SAME map.
+        // direction: 0=North, 1=East, 2=South, 3=West. Clamps to the map edge. Returns the block reached.
+        public int debugTeleportBy(int distance, int direction)
+        {
+            int x = currentBlock & 31, y = currentBlock >> 5;
+            switch (direction & 3)
+            {
+                case 0: y -= distance; break; // North
+                case 1: x += distance; break; // East
+                case 2: y += distance; break; // South
+                case 3: x -= distance; break; // West
+            }
+            x = Math.Max(0, Math.Min(31, x));
+            y = Math.Max(0, Math.Min(31, y));
+            int block = (y << 5) + x;
+            debugTeleportHere(block);
+            return block;
+        }
+
         // Returns a JSON-serializable snapshot of the running game.
         public JsonObject saveState()
         {
