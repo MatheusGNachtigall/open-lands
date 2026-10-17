@@ -676,6 +676,36 @@
   margin-right: 6px;
 }
 
+/* Party card cooldown overlay: fades the whole card while a hero is recovering from a swing.
+   The overlay sits on top of everything (position: absolute, full size) with pointer-events:
+   none so clicks still reach the face, buttons, and bars underneath.
+   A thin amber progress strip runs along the bottom edge and fills left-to-right as the
+   cooldown clears; the overlay itself fades out smoothly when the hero is ready again. */
+.ui-card-cooldown {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: rgba(0, 0, 0, 0);
+  opacity: 0;
+  transition-property: opacity;
+  transition-duration: 0.15s;
+}
+.ui-card.cooling .ui-card-cooldown {
+  background-color: rgba(8, 6, 4, 0.55);
+  opacity: 1;
+}
+.ui-card-cooldown-fill {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  height: 4px;
+  width: 0%;
+  background-color: #b9863a;
+  /* no width transition: updateCooldowns() interpolates the width every frame */
+}
+
 /* the title's buttons, one above the other: Continue, New game, Settings (Unity build: settings before a game) */
 .continue-button {
   bottom: 32%;

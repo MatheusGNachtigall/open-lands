@@ -41,6 +41,18 @@ namespace LolHost
             /// <summary>What the skill rows show: they are rebuilt only when it changes (the same DOM as rebuilding
             /// every update, without re-laying-out fresh rows each frame).</summary>
             public string skillsKey, quickKey;
+            /// <summary>Full-card cooldown overlay and its progress fill strip.</summary>
+            public VisualElement cdOverlay, cdFill;
+            /// <summary>The last raw cooldown value received from the engine (null = ready).</summary>
+            public double? cdRaw;
+            /// <summary>Timestamp (Web.now()) when cdRaw last changed, for sub-tick interpolation.</summary>
+            public double cdAt;
+            /// <summary>Estimated duration of one engine tick for this character (ms), computed when cdRaw first arrives.</summary>
+            public double cdTickMs;
+            /// <summary>How much one engine tick advances the cooldown value (measured between consecutive ticks).</summary>
+            public double cdStep;
+            /// <summary>The interpolated value currently drawn; only moves forward within a swing.</summary>
+            public double cdShown;
         }
 
         public readonly VisualElement root;
@@ -553,6 +565,76 @@ namespace LolHost
             if (engine == null) return;
             updateHotbar(engine);
             updateParty(engine);
+            updateCooldowns(engine);
+        }
+
+        /// <summary>
+        /// Runs every frame, independently of the partyKey check in updateParty.
+        /// Reads the raw cooldown value (0 just swung, 1 ready, null = not on cooldown) and
+        /// smoothly interpolates it between engine ticks so the progress strip advances
+        /// continuously rather than jumping one step per tick.
+        /// </summary>
+        public void updateCooldowns(LandsOfLore engine)
+        {
+            double now = Web.now();
+            for (int c = 0; c < 4; c += 1)
+            {
+                var card = c < cards.Length ? cards[c] : null;
+                if (card == null || card.cdOverlay == null) continue;
+
+                double? raw = engine.uiAttackCooldown(c);
+
+                // Detect a new raw value from the engine (tick boundary or swing start).
+                if (raw != card.cdRaw)
+                {
+                    bool newSwing = raw.HasValue && (!card.cdRaw.HasValue || raw.Value < card.cdRaw.Value);
+                    if (!raw.HasValue)
+                    {
+                        // Ready again: nothing to interpolate. Tick length/step are kept for the next swing.
+                        card.cdRaw = null;
+                    }
+                    else if (newSwing)
+                    {
+                        // A fresh swing: snap to the start. The tick length and per-tick step are the same
+                        // as last swing (same hero, same weapon), so keep them to smooth the first tick too.
+                        card.cdRaw = raw;
+                        card.cdAt = now;
+                        card.cdShown = raw.Value;
+                    }
+                    else
+                    {
+                        // A normal tick: measure how far one tick moves the value and how long it takes.
+                        card.cdStep = raw.Value - card.cdRaw.Value;
+                        card.cdTickMs = Math.Max(16, Math.Min(1000, now - card.cdAt));
+                        card.cdRaw = raw;
+                        card.cdAt = now;
+                    }
+                }
+
+                if (!raw.HasValue)
+                {
+                    // Hero is ready: remove the cooling class (CSS opacity transition fades the overlay out).
+                    // The strip is left full so it fades out complete rather than sliding back to empty.
+                    card.root.RemoveFromClassList("cooling");
+                    card.cdShown = 1;
+                    card.cdFill.SetStyle("width", "100%");
+                    card.cdOverlay.SetTitle($"{engine.characters[c].name} can strike");
+                }
+                else
+                {
+                    card.root.AddToClassList("cooling");
+                    // Interpolate toward the next expected tick, never past it, and never backwards.
+                    double target = raw.Value;
+                    if (card.cdTickMs > 0 && card.cdStep > 0)
+                    {
+                        double tickFrac = Math.Min(1, Math.Max(0, now - card.cdAt) / card.cdTickMs);
+                        target = Math.Min(1, raw.Value + card.cdStep * tickFrac);
+                    }
+                    card.cdShown = Math.Min(1, Math.Max(card.cdShown, target));
+                    card.cdFill.SetStyle("width", $"{N(Math.Round(card.cdShown * 100, 2))}%");
+                    card.cdOverlay.SetTitle($"{engine.characters[c].name} is recovering from a swing");
+                }
+            }
         }
 
         public int sameKindCount(LandsOfLore engine, int item)
@@ -625,6 +707,9 @@ namespace LolHost
             // the palette is part of the key: faces drawn during a fade (frozen party, level scripts) would
             // otherwise stay black until something else on the card changed
             int palSum = 0; for (int i = 0; i < 768; i += 1) palSum = unchecked(palSum * 31 + palette[i]);
+            // Exclude cooldown from the key: updateCooldowns() handles it every frame for smooth
+            // interpolation; including it here would trigger the expensive full-card rebuild each frame.
+            foreach (var info in infos) { if (info != null) info.cooldown = null; }
             string key = JsonSerializer.Serialize(infos, KeyJson) + $"|{string.Join(",", engine.characters.Select((ch) => $"{ch.curFaceFrame}:{ch.tempFaceFrame}"))}|{engine.itemInHand}|{JsonSerializer.Serialize(engine.characters.Select((ch, i) => getQuickSpell != null ? getQuickSpell(i) : null).ToArray(), KeyJson)}|{palSum}";
             if (key == partyKey) return;
             partyKey = key;
@@ -679,11 +764,6 @@ namespace LolHost
                 card.hpText.SetText($"{info.hp}/{info.hpMax}");
                 card.mp.SetStyle("width", $"{N(Math.Max(0, Math.Min(100, ((double)info.mp / Math.Max(1, info.mpMax)) * 100)))}%");
                 card.mpText.SetText($"{info.mp}/{info.mpMax}");
-                // how far through their swing they are, so you can see who is ready without guessing
-                bool ready = info.cooldown == null;
-                card.cooldown.ClassToggle("ready", ready);
-                card.cooldown[0].SetStyle("width", ready ? "100%" : $"{N(Math.Floor(info.cooldown.Value * 100 + 0.5))}%");
-                card.cooldown.SetTitle(ready ? $"{info.name} can strike" : $"{info.name} is recovering from a swing");
                 card.stats.SetText($"Might {info.might}  Prot {info.protection}");
                 string skillsKey = $"{info.skills.fighter.level},{info.skills.fighter.points},{info.skills.fighter.next}|{info.skills.rogue.level},{info.skills.rogue.points},{info.skills.rogue.next}|{info.skills.mage.level},{info.skills.mage.points},{info.skills.mage.next}";
                 if (skillsKey != card.skillsKey)
@@ -806,8 +886,6 @@ namespace LolHost
             var stats = el("div", "ui-stats");
             var skills = el("div", "ui-skills");
             var status = el("div", "ui-status");
-            var cooldown = el("div", "ui-cooldown");
-            cooldown.Append(el("i"));
             var weapon = el("span", "ui-weapon"); // blade condition, only with weapon wear on
             weapon.SetHidden(true);
             var attack = el("button", "ui-attack", "Attack");
@@ -824,9 +902,16 @@ namespace LolHost
             var buttons = el("div", "ui-buttons");
             buttons.Append(attack, best, quick);
             name.Append(weapon);
-            info.Append(name, hpBar, mpBar, cooldown, stats, skills, status, buttons);
-            root.Append(face, info);
-            return new Card { root = root, face = face, name = name, hp = hp, hpText = hpText, mp = mp, mpText = mpText, stats = stats, skills = skills, status = status, attack = attack, quick = quick, cooldown = cooldown, weapon = weapon };
+            info.Append(name, hpBar, mpBar, stats, skills, status, buttons);
+            // Full-card cooldown overlay: covers the card with a dark tint while the hero recovers.
+            // picking-mode Ignore keeps all clicks, drags, and buttons underneath accessible.
+            var cdFill = el("div", "ui-card-cooldown-fill");
+            var cdOverlay = el("div", "ui-card-cooldown");
+            cdOverlay.pickingMode = UnityEngine.UIElements.PickingMode.Ignore;
+            cdFill.pickingMode = UnityEngine.UIElements.PickingMode.Ignore;
+            cdOverlay.Append(cdFill);
+            root.Append(face, info, cdOverlay);
+            return new Card { root = root, face = face, name = name, hp = hp, hpText = hpText, mp = mp, mpText = mpText, stats = stats, skills = skills, status = status, attack = attack, quick = quick, cooldown = cdOverlay, weapon = weapon, cdOverlay = cdOverlay, cdFill = cdFill };
         }
     }
 }
